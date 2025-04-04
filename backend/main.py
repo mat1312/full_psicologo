@@ -192,10 +192,26 @@ class SupabaseClient:
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json"
             }
+            
+            # Log dettagliato della richiesta
+            logger.info(f"Verificando token con Supabase. URL: {self.url}/auth/v1/user")
+            logger.info(f"Token length: {len(token)}, Prefix: {token[:10]}...")
+            
             response = await self.client.get(f"{self.url}/auth/v1/user", headers=headers)
+            
+            # Log della risposta
+            logger.info(f"Risposta Supabase: Status {response.status_code}")
+            
             if response.status_code == 200:
-                return response.json()
-            return None
+                user_data = response.json()
+                logger.info(f"Token valido per utente: {user_data.get('id')}")
+                return user_data
+            elif response.status_code == 401:
+                logger.warning(f"Token non valido o scaduto. Status: {response.status_code}")
+                return None
+            else:
+                logger.error(f"Errore verifica token: Status {response.status_code}, Response: {response.text}")
+                return None
         except Exception as e:
             logger.error(f"Errore verifica token: {str(e)}")
             return None

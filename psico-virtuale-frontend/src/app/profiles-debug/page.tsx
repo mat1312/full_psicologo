@@ -6,8 +6,10 @@ import { useAuthStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 
 export default function ProfilesDebugPage() {
+  const router = useRouter()
   const { user } = useAuthStore()
   const [profiles, setProfiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -230,6 +232,16 @@ export default function ProfilesDebugPage() {
 
   return (
     <div className="container mx-auto py-8">
+      <div className="mb-4">
+        <Button 
+          variant="outline" 
+          onClick={() => router.back()}
+          className="mb-4"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="m15 18-6-6 6-6"/></svg>
+          Torna indietro
+        </Button>
+      </div>
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Debug profili e relazioni</CardTitle>

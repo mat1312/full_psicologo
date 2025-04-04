@@ -31,7 +31,11 @@ import {
   AlertCircle,
   CheckCircle2,
   BadgeInfo,
-  PlusCircle
+  PlusCircle,
+  Brain,
+  HeartPulse,
+  Sparkles,
+  LogOut
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
@@ -699,80 +703,81 @@ export default function TherapistDashboardPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      {/* Header e Stats */}
-      <div className="mb-8 space-y-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Dashboard Terapeuta</h1>
-          <div className="flex gap-2">
-            {/* Aggiungi il pulsante di test */}
-            <Button 
-              variant="outline"
-              onClick={testTherapistPatientRelation}
-              className="flex items-center gap-1"
-            >
-              <Search className="h-4 w-4" />
-              Test Relazioni
-            </Button>
-            {/* Pulsante per la pagina di debug profili */}
-            <Button 
-              variant="outline"
-              onClick={() => router.push('/profiles-debug')}
-              className="flex items-center gap-1"
-            >
-              <Microscope className="h-4 w-4 mr-1" />
-              Debug Profili
-            </Button>
-            {/* Nuovo pulsante per aggiungere relazioni */}
-            <Button 
-              variant="default"
-              onClick={() => router.push('/add-relation')}
-              className="flex items-center gap-1"
-            >
-              <PlusCircle className="h-4 w-4 mr-1" />
-              Aggiungi Relazione
-            </Button>
-            <Button variant="outline" onClick={() => signOut()}>Logout</Button>
-          </div>
+    <div className="container mx-auto py-8 max-w-7xl">
+      {/* Header migliorato */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard Psicologo</h1>
+          <p className="text-muted-foreground mt-1">
+            Benvenuto, {user?.first_name || 'Terapeuta'}. Gestisci i tuoi pazienti e analizza le loro sessioni.
+          </p>
         </div>
-        
-        {/* Statistiche generali */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+        <Button variant="outline" onClick={signOut} className="gap-2">
+          <LogOut className="h-4 w-4" />
+          Esci
+        </Button>
+      </div>
+
+      {/* Cards statistiche principali con effetti hover e gradienti */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-amber-500" />
+          Panoramica
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          <Card className="card-hover-effect overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-500"></div>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Pazienti totali</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalPatients}</div>
+              <div className="text-3xl font-bold">{stats.totalPatients}</div>
+              <div className="mt-2 flex items-center text-muted-foreground text-sm">
+                <Users className="h-4 w-4 mr-1" />
+                Pazienti in cura
+              </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="card-hover-effect overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-orange-600"></div>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Pazienti attivi</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activePatientsPercent}%</div>
-              <p className="text-xs text-muted-foreground">Attivi negli ultimi 30 giorni</p>
+              <div className="text-3xl font-bold">{stats.activePatientsPercent}%</div>
+              <div className="mt-2 flex items-center text-muted-foreground text-sm">
+                <HeartPulse className="h-4 w-4 mr-1 text-rose-500" />
+                Attivi negli ultimi 30 giorni
+              </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="card-hover-effect overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-red-500"></div>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Sessioni totali</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalSessions}</div>
+              <div className="text-3xl font-bold">{stats.totalSessions}</div>
+              <div className="mt-2 flex items-center text-muted-foreground text-sm">
+                <BrainCircuit className="h-4 w-4 mr-1 text-amber-600" />
+                Consulti completati
+              </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="card-hover-effect overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-rose-500"></div>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Media sessioni</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.avgSessionsPerPatient}</div>
-              <p className="text-xs text-muted-foreground">Sessioni per paziente</p>
+              <div className="text-3xl font-bold">{stats.avgSessionsPerPatient}</div>
+              <div className="mt-2 flex items-center text-muted-foreground text-sm">
+                <Brain className="h-4 w-4 mr-1 text-orange-600" />
+                Sessioni per paziente
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -780,10 +785,10 @@ export default function TherapistDashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Lista pazienti con ricerca e filtri */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1 backdrop-blur-sm bg-card/95 border border-amber-100 dark:border-amber-900/30 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Users className="h-5 w-5 mr-2" />
+              <Users className="h-5 w-5 mr-2 text-amber-500" />
               I tuoi pazienti
             </CardTitle>
             <CardDescription>
@@ -796,7 +801,7 @@ export default function TherapistDashboardPage() {
               <Input
                 type="text"
                 placeholder="Cerca paziente..."
-                className="pl-8"
+                className="pl-8 border-amber-200 dark:border-amber-800/50 transition-all focus:border-amber-400 dark:focus:border-amber-600"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -807,7 +812,7 @@ export default function TherapistDashboardPage() {
                 size="sm" 
                 variant={statusFilter === 'all' ? 'default' : 'outline'} 
                 onClick={() => setStatusFilter('all')}
-                className="flex-1 text-xs"
+                className={`flex-1 text-xs ${statusFilter === 'all' ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' : 'hover:bg-amber-100 dark:hover:bg-amber-900/20'}`}
               >
                 Tutti
               </Button>
@@ -815,7 +820,7 @@ export default function TherapistDashboardPage() {
                 size="sm" 
                 variant={statusFilter === 'active' ? 'default' : 'outline'} 
                 onClick={() => setStatusFilter('active')}
-                className="flex-1 text-xs"
+                className={`flex-1 text-xs ${statusFilter === 'active' ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' : 'hover:bg-amber-100 dark:hover:bg-amber-900/20'}`}
               >
                 Attivi
               </Button>
@@ -823,13 +828,13 @@ export default function TherapistDashboardPage() {
                 size="sm" 
                 variant={statusFilter === 'inactive' ? 'default' : 'outline'} 
                 onClick={() => setStatusFilter('inactive')}
-                className="flex-1 text-xs"
+                className={`flex-1 text-xs ${statusFilter === 'inactive' ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' : 'hover:bg-amber-100 dark:hover:bg-amber-900/20'}`}
               >
                 Inattivi
               </Button>
             </div>
             
-            <Separator />
+            <Separator className="bg-amber-200/50 dark:bg-amber-800/20" />
             
             {isLoading.patients ? (
               <p className="text-center py-4">Caricamento pazienti...</p>
@@ -837,7 +842,7 @@ export default function TherapistDashboardPage() {
               <div className="text-center py-6 space-y-2">
                 <p className="text-gray-500">Nessun paziente trovato</p>
                 {searchQuery && (
-                  <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
+                  <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')} className="text-amber-600 hover:text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/20">
                     Cancella ricerca
                   </Button>
                 )}
@@ -847,29 +852,31 @@ export default function TherapistDashboardPage() {
                 {filteredPatients.map((patient) => (
                   <div
                     key={patient.id}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${
                       selectedPatient?.id === patient.id 
-                        ? 'bg-blue-100 dark:bg-blue-900/20' 
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-800/50'
+                        ? 'bg-gradient-to-r from-amber-100 to-amber-200/70 dark:from-amber-900/40 dark:to-amber-800/20 shadow-md' 
+                        : 'hover:bg-amber-50 dark:hover:bg-amber-900/10 hover:shadow-sm'
                     }`}
                     onClick={() => handleSelectPatient(patient)}
                   >
                     <div className="flex items-center gap-2">
-                      <UserCircle className="h-8 w-8 text-gray-400" />
+                      <div className={`rounded-full p-2 ${selectedPatient?.id === patient.id ? 'bg-amber-200 dark:bg-amber-700' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
+                        <UserCircle className={`h-6 w-6 ${selectedPatient?.id === patient.id ? 'text-amber-700 dark:text-amber-300' : 'text-amber-500 dark:text-amber-400'}`} />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">
                           {patient.first_name 
                             ? `${patient.first_name} ${patient.last_name || ''}` 
                             : patient.email}
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <div className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300">
                           <CalendarDays className="h-3 w-3" />
                           <span>
                             {patient.sessions_count || 0} sessioni
                           </span>
                         </div>
                       </div>
-                      <Badge variant={patient.status === 'active' ? 'default' : 'outline'}>
+                      <Badge variant={patient.status === 'active' ? 'default' : 'outline'} className={patient.status === 'active' ? 'status-badge-active text-white' : 'status-badge-inactive'}>
                         {patient.status === 'active' ? 'Attivo' : 'Inattivo'}
                       </Badge>
                     </div>
@@ -885,7 +892,7 @@ export default function TherapistDashboardPage() {
             )}
           </CardContent>
           <CardFooter>
-            <Button variant="outline" className="w-full" onClick={() => toast.info('Funzionalità in arrivo', { description: 'La possibilità di aggiungere nuovi pazienti sarà disponibile presto.' })}>
+            <Button variant="outline" className="w-full border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-300" onClick={() => toast.info('Funzionalità in arrivo', { description: 'La possibilità di aggiungere nuovi pazienti sarà disponibile presto.' })}>
               <PlusCircle className="h-4 w-4 mr-2" />
               Aggiungi paziente
             </Button>
@@ -897,11 +904,15 @@ export default function TherapistDashboardPage() {
           {selectedPatient ? (
             <>
               {/* Informazioni sul paziente */}
-              <Card>
+              <Card className="backdrop-blur-sm bg-card/95 overflow-hidden border border-amber-100 dark:border-amber-900/30 shadow-lg">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-600"></div>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-xl">
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <div className="rounded-full p-1.5 bg-amber-100 dark:bg-amber-900/50">
+                          <UserCircle className="h-5 w-5 text-amber-700 dark:text-amber-300" />
+                        </div>
                         {selectedPatient.first_name 
                           ? `${selectedPatient.first_name} ${selectedPatient.last_name || ''}`
                           : selectedPatient.email}
@@ -910,23 +921,32 @@ export default function TherapistDashboardPage() {
                         Email: {selectedPatient.email}
                       </CardDescription>
                     </div>
-                    <Badge variant={selectedPatient.status === 'active' ? 'default' : 'outline'} className="ml-auto">
+                    <Badge variant={selectedPatient.status === 'active' ? 'default' : 'outline'} className={`ml-auto ${selectedPatient.status === 'active' ? 'status-badge-active text-white' : 'status-badge-inactive'}`}>
                       {selectedPatient.status === 'active' ? 'Attivo' : 'Inattivo'}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="border rounded-lg p-3">
-                      <div className="text-sm text-muted-foreground mb-1">Data registrazione</div>
+                    <div className="border border-amber-200 dark:border-amber-800/30 rounded-lg p-3 bg-amber-50/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
+                      <div className="text-sm text-amber-600 dark:text-amber-300 font-medium mb-1 flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        Data registrazione
+                      </div>
                       <div>{new Date(selectedPatient.created_at).toLocaleDateString()}</div>
                     </div>
-                    <div className="border rounded-lg p-3">
-                      <div className="text-sm text-muted-foreground mb-1">Sessioni totali</div>
+                    <div className="border border-amber-200 dark:border-amber-800/30 rounded-lg p-3 bg-amber-50/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
+                      <div className="text-sm text-amber-600 dark:text-amber-300 font-medium mb-1 flex items-center gap-1">
+                        <BrainCircuit className="h-3.5 w-3.5" />
+                        Sessioni totali
+                      </div>
                       <div>{selectedPatient.sessions_count || 0}</div>
                     </div>
-                    <div className="border rounded-lg p-3">
-                      <div className="text-sm text-muted-foreground mb-1">Ultima attività</div>
+                    <div className="border border-amber-200 dark:border-amber-800/30 rounded-lg p-3 bg-amber-50/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
+                      <div className="text-sm text-amber-600 dark:text-amber-300 font-medium mb-1 flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        Ultima attività
+                      </div>
                       <div>
                         {selectedPatient.last_session 
                           ? new Date(selectedPatient.last_session).toLocaleDateString() 
@@ -936,9 +956,9 @@ export default function TherapistDashboardPage() {
                   </div>
                   
                   {/* Note sul paziente */}
-                  <div className="border rounded-lg p-4">
+                  <div className="border border-amber-200 dark:border-amber-800/30 rounded-lg p-4 bg-amber-50/30 dark:bg-amber-900/10 transition-all hover:shadow-md">
                     <div className="flex justify-between items-center mb-2">
-                      <div className="font-medium flex items-center">
+                      <div className="font-medium flex items-center text-amber-700 dark:text-amber-300">
                         <FileEdit className="h-4 w-4 mr-2" />
                         Note sul paziente
                       </div>
@@ -947,6 +967,7 @@ export default function TherapistDashboardPage() {
                           variant="ghost" 
                           size="sm" 
                           onClick={() => setEditingNote(true)}
+                          className="hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-400"
                         >
                           Modifica
                         </Button>
@@ -959,6 +980,7 @@ export default function TherapistDashboardPage() {
                               setEditingNote(false)
                               setPatientNote(selectedPatient.note || '')
                             }}
+                            className="border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30"
                           >
                             <X className="h-4 w-4 mr-1" />
                             Annulla
@@ -967,6 +989,7 @@ export default function TherapistDashboardPage() {
                             size="sm" 
                             onClick={savePatientNote} 
                             disabled={isLoading.saveNote}
+                            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
                           >
                             <Save className="h-4 w-4 mr-1" />
                             Salva
@@ -979,7 +1002,7 @@ export default function TherapistDashboardPage() {
                         <textarea
                           value={patientNote}
                           onChange={(e) => setPatientNote(e.target.value)}
-                          className="w-full min-h-[100px] p-2 border rounded-md"
+                          className="w-full min-h-[100px] p-2 border border-amber-200 dark:border-amber-800/50 rounded-md focus:border-amber-400 dark:focus:border-amber-600 focus:ring-amber-300 dark:focus:ring-amber-700/50 transition-colors bg-white/80 dark:bg-black/20"
                           placeholder="Inserisci note sul paziente..."
                         />
                       </div>
@@ -997,9 +1020,13 @@ export default function TherapistDashboardPage() {
               </Card>
               
               {/* Sessioni del paziente */}
-              <Card>
+              <Card className="backdrop-blur-sm bg-card/95 overflow-hidden border border-amber-100 dark:border-amber-900/30 shadow-lg">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-red-500"></div>
                 <CardHeader>
-                  <CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="rounded-full p-1.5 bg-orange-100 dark:bg-orange-900/50">
+                      <BrainCircuit className="h-5 w-5 text-orange-700 dark:text-orange-300" />
+                    </div>
                     Sessioni di {selectedPatient.first_name || selectedPatient.email}
                   </CardTitle>
                   <CardDescription>
@@ -1008,9 +1035,9 @@ export default function TherapistDashboardPage() {
                 </CardHeader>
                 <CardContent>
                   {!selectedPatient.sessions || selectedPatient.sessions.length === 0 ? (
-                    <div className="text-center py-10 border border-dashed rounded-lg">
-                      <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-gray-500">
+                    <div className="text-center py-10 border border-amber-200/50 dark:border-amber-800/20 border-dashed rounded-lg bg-amber-50/30 dark:bg-amber-900/10">
+                      <AlertCircle className="h-10 w-10 text-amber-400 dark:text-amber-500/70 mx-auto mb-4" />
+                      <p className="text-amber-700 dark:text-amber-300">
                         Nessuna sessione disponibile per questo paziente
                       </p>
                     </div>
@@ -1019,23 +1046,23 @@ export default function TherapistDashboardPage() {
                       {selectedPatient.sessions.map((session) => (
                         <div
                           key={session.id}
-                          className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                          className={`p-4 border rounded-lg cursor-pointer transition-all ${
                             selectedSession === session.id 
-                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                              : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                              ? 'border-orange-400 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/20 shadow-md' 
+                              : 'border-amber-200 dark:border-amber-800/30 hover:bg-amber-50 dark:hover:bg-amber-900/10 hover:border-amber-300 dark:hover:border-amber-700 hover:shadow'
                           }`}
                           onClick={() => handleSelectSession(session.id)}
                         >
-                          <h3 className="font-medium">
+                          <h3 className={`font-medium ${selectedSession === session.id ? 'text-orange-700 dark:text-orange-300' : ''}`}>
                             {session.title || `Sessione ${new Date(session.created_at).toLocaleDateString()}`}
                           </h3>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="outline" className="text-xs">
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <Badge variant="outline" className={`text-xs ${selectedSession === session.id ? 'border-orange-300 dark:border-orange-700 bg-orange-100/50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-amber-200 dark:border-amber-800'}`}>
                               {new Date(session.created_at).toLocaleDateString()}
                             </Badge>
                             {new Date(session.created_at).toDateString() !== 
                              new Date(session.last_updated).toDateString() && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className={`text-xs ${selectedSession === session.id ? 'border-orange-300 dark:border-orange-700 bg-orange-100/50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-amber-200 dark:border-amber-800'}`}>
                                 Aggiornata: {new Date(session.last_updated).toLocaleDateString()}
                               </Badge>
                             )}
@@ -1049,25 +1076,31 @@ export default function TherapistDashboardPage() {
               
               {/* Analisi della sessione */}
               {selectedSession && (
-                <Card>
+                <Card className="backdrop-blur-sm bg-card/95 overflow-hidden border border-amber-100 dark:border-amber-900/30 shadow-lg">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-rose-600"></div>
                   <CardHeader>
-                    <CardTitle>Analisi della sessione</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <div className="rounded-full p-1.5 bg-rose-100 dark:bg-rose-900/50">
+                        <Microscope className="h-5 w-5 text-rose-700 dark:text-rose-300" />
+                      </div>
+                      Analisi della sessione
+                    </CardTitle>
                     <CardDescription>
                       Riepilogo e analisi della sessione selezionata
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Tabs defaultValue="summary">
-                      <TabsList className="mb-4">
-                        <TabsTrigger value="summary" className="flex items-center">
+                      <TabsList className="mb-4 bg-amber-100 dark:bg-amber-900/30 p-1">
+                        <TabsTrigger value="summary" className="flex items-center data-[state=active]:bg-white dark:data-[state=active]:bg-black/20 data-[state=active]:text-amber-700 dark:data-[state=active]:text-amber-300">
                           <BadgeInfo className="h-4 w-4 mr-2" />
                           Riepilogo
                         </TabsTrigger>
-                        <TabsTrigger value="mood" className="flex items-center">
+                        <TabsTrigger value="mood" className="flex items-center data-[state=active]:bg-white dark:data-[state=active]:bg-black/20 data-[state=active]:text-amber-700 dark:data-[state=active]:text-amber-300">
                           <BarChart4 className="h-4 w-4 mr-2" />
                           Analisi umore
                         </TabsTrigger>
-                        <TabsTrigger value="pathology" className="flex items-center">
+                        <TabsTrigger value="pathology" className="flex items-center data-[state=active]:bg-white dark:data-[state=active]:bg-black/20 data-[state=active]:text-amber-700 dark:data-[state=active]:text-amber-300">
                           <Microscope className="h-4 w-4 mr-2" />
                           Analisi patologie
                         </TabsTrigger>
@@ -1080,7 +1113,7 @@ export default function TherapistDashboardPage() {
                           </div>
                         ) : (
                           <div 
-                            className="prose prose-blue dark:prose-invert max-w-none"
+                            className="prose prose-amber dark:prose-invert max-w-none p-4 rounded-lg border border-amber-200/50 dark:border-amber-800/20 bg-amber-50/30 dark:bg-amber-900/10"
                             dangerouslySetInnerHTML={{ __html: sessionSummary }}
                           />
                         )}
@@ -1093,7 +1126,7 @@ export default function TherapistDashboardPage() {
                           </div>
                         ) : (
                           <div 
-                            className="prose prose-blue dark:prose-invert max-w-none"
+                            className="prose prose-amber dark:prose-invert max-w-none p-4 rounded-lg border border-amber-200/50 dark:border-amber-800/20 bg-amber-50/30 dark:bg-amber-900/10"
                             dangerouslySetInnerHTML={{ __html: moodAnalysis }}
                           />
                         )}
@@ -1105,20 +1138,20 @@ export default function TherapistDashboardPage() {
                             <p>Caricamento analisi delle patologie...</p>
                           </div>
                         ) : pathologyAnalysis ? (
-                          <div className="space-y-6">
-                            <div className="prose prose-blue dark:prose-invert max-w-none">
+                          <div className="space-y-6 p-4 rounded-lg border border-amber-200/50 dark:border-amber-800/20 bg-amber-50/30 dark:bg-amber-900/10">
+                            <div className="prose prose-amber dark:prose-invert max-w-none">
                               <h3>Riepilogo dell'analisi</h3>
                               <p>{pathologyAnalysis.analysis_summary}</p>
                             </div>
                             
                             <div>
-                              <h3 className="text-lg font-medium mb-4">Possibili patologie rilevate</h3>
+                              <h3 className="text-lg font-medium mb-4 text-amber-800 dark:text-amber-200">Possibili patologie rilevate</h3>
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 {pathologyAnalysis.possible_pathologies.map((pathology: any, index: number) => (
-                                  <div key={index} className="border rounded-lg p-4">
+                                  <div key={index} className="border border-amber-200 dark:border-amber-800/30 rounded-lg p-4 bg-white/80 dark:bg-black/20 shadow-sm hover:shadow-md transition-shadow">
                                     <div className="flex justify-between items-start mb-2">
-                                      <h4 className="font-medium">{pathology.name}</h4>
-                                      <Badge>
+                                      <h4 className="font-medium text-amber-700 dark:text-amber-300">{pathology.name}</h4>
+                                      <Badge className="bg-gradient-to-r from-amber-500 to-orange-600">
                                         {Math.round(pathology.confidence * 100)}%
                                       </Badge>
                                     </div>
@@ -1126,7 +1159,7 @@ export default function TherapistDashboardPage() {
                                       {pathology.description}
                                     </p>
                                     <div>
-                                      <h5 className="text-sm font-medium mb-1">Sintomi chiave:</h5>
+                                      <h5 className="text-sm font-medium mb-1 text-amber-600 dark:text-amber-400">Sintomi chiave:</h5>
                                       <ul className="text-xs text-gray-600 dark:text-gray-400 list-disc list-inside">
                                         {pathology.key_symptoms.map((symptom: string, symIdx: number) => (
                                           <li key={symIdx}>{symptom}</li>
@@ -1156,23 +1189,25 @@ export default function TherapistDashboardPage() {
             </>
           ) : (
             <div className="h-full flex items-center justify-center">
-              <div className="text-center py-10 px-6 max-w-md mx-auto">
-                <UserCircle className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Seleziona un paziente</h3>
-                <p className="text-gray-500 mb-6">
+              <div className="text-center py-16 px-6 max-w-md mx-auto bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 rounded-xl border border-amber-100 dark:border-amber-800/20 shadow-xl">
+                <div className="rounded-full p-4 bg-amber-100 dark:bg-amber-900/50 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                  <UserCircle className="h-10 w-10 text-amber-500 dark:text-amber-300" />
+                </div>
+                <h3 className="text-xl font-medium mb-3 text-amber-700 dark:text-amber-300">Seleziona un paziente</h3>
+                <p className="text-amber-600 dark:text-amber-400 mb-8">
                   Seleziona un paziente dalla lista per visualizzare i dettagli e le sessioni
                 </p>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                    <CheckCircle2 className="h-5 w-5 text-blue-500 mr-2" />
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center bg-white/60 dark:bg-black/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800/30 shadow-sm">
+                    <CheckCircle2 className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
                     <span className="text-sm">Visualizza le sessioni dei pazienti</span>
                   </div>
-                  <div className="flex items-center bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                    <CheckCircle2 className="h-5 w-5 text-blue-500 mr-2" />
+                  <div className="flex items-center bg-white/60 dark:bg-black/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800/30 shadow-sm">
+                    <CheckCircle2 className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
                     <span className="text-sm">Gestisci le note sui pazienti</span>
                   </div>
-                  <div className="flex items-center bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                    <CheckCircle2 className="h-5 w-5 text-blue-500 mr-2" />
+                  <div className="flex items-center bg-white/60 dark:bg-black/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800/30 shadow-sm">
+                    <CheckCircle2 className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
                     <span className="text-sm">Analizza le sessioni di terapia</span>
                   </div>
                 </div>

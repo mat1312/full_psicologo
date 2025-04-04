@@ -22,10 +22,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // // Rimuovi log specifico di Supabase e controllo ruolo qui (lascia che sia il backend a farlo)
-    // console.log("Token trovato per pathology-analysis:", ...);
-    // const { data: profileData, error: profileError } = await supabase...
-    // if (profileError || profileData?.role !== 'therapist') { ... }
+    // Log dettagliato del token per debug
+    console.log("[API Route] Token ricevuto. Lunghezza:", authorization.length);
+    console.log("[API Route] Token formato corretto:", authorization.startsWith('Bearer '));
+    if (authorization.startsWith('Bearer ')) {
+      const token = authorization.substring(7);
+      console.log("[API Route] Token effettivo. Lunghezza:", token.length, "Prefisso:", token.substring(0, 10) + "...");
+    }
 
     // Estrai i dati
     const { 
@@ -44,8 +47,10 @@ export async function POST(req: NextRequest) {
 
     // Usa l'URL del backend da variabili d'ambiente
     const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+    console.log("[API Route] URL backend:", backendUrl);
 
     // Passa semplicemente l'auth header ricevuto al backend
+    console.log("[API Route] Inoltro richiesta al backend con token...");
     const response = await fetch(`${backendUrl}/api/pathology-analysis`, {
       method: 'POST',
       headers: {
@@ -74,6 +79,22 @@ export async function POST(req: NextRequest) {
       
       // Se è un errore di autenticazione DAL BACKEND, restituisci un errore 401
       if (response.status === 401) {
+        // Test diretto del token contro l'endpoint di debug
+        console.log("[API Route] Test diretto del token via endpoint debug...");
+        try {
+          const debugResponse = await fetch(`${backendUrl}/api/debug/token`, {
+            method: 'GET',
+            headers: {
+              'Authorization': authorization
+            }
+          });
+          
+          const debugData = await debugResponse.json();
+          console.log("[API Route] Risposta debug token:", debugData);
+        } catch (debugError) {
+          console.error("[API Route] Errore nel test debug del token:", debugError);
+        }
+        
         return NextResponse.json(
           { error: errorData.detail || 'Utente non autenticato o sessione scaduta (backend)' }, 
           { status: 401 }
