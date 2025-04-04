@@ -1,0 +1,12 @@
+id,email,role,first_name,last_name,created_at,last_login,avatar_url,metadata
+08b8fca0-a5cc-4e3a-af1f-80971b07313e,test@test1,patient,,,2025-03-29 17:35:34.82941+00,,,
+126064ef-b9ff-4ebe-a323-95e8c0801e5e,test3@test4,patient,,,2025-03-31 15:56:32.896502+00,,,
+2a572819-0324-4432-abd1-1157a96cf767,paziente@test,patient,,,2025-03-29 17:39:55.451841+00,,,
+3dab2689-fcfa-4034-8574-77c451486902,test10@test10,patient,,,2025-04-01 14:57:04.773687+00,,,
+5be00118-dda5-4487-bfc2-7fddd68761b3,prova7@prova7,therapist,,,2025-03-31 16:10:24.153286+00,,,
+5fe3e85b-3be9-4feb-993e-eff56320e7d9,test@test3,therapist,,,2025-03-29 17:35:50.923833+00,,,
+924ce5d4-ac5b-4c88-9092-92c90a2f2c0a,luigi@paziente1,patient,,,2025-04-04 09:49:01.656763+00,,,
+9dc5ea4a-6c16-4e9b-a296-9530e3afd000,test11@test11,therapist,,,2025-04-01 15:10:23.827786+00,,,
+bdd359cf-2b2b-4517-a58e-777d66025a27,prova9@prova9,patient,,,2025-03-31 16:20:50.256332+00,,,
+c133a594-d1b4-4625-a476-b85906e17d61,mario@psicologo1,therapist,,,2025-04-04 09:48:00.956449+00,,,
+e22df4b0-77a7-477c-8922-8c498ed40c4d,prova6@prova6,patient,,,2025-03-31 16:04:11.690369+00,,,

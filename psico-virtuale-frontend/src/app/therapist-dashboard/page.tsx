@@ -93,6 +93,21 @@ export default function TherapistDashboardPage() {
       } else if (user.role !== 'therapist') {
         router.push('/patient-dashboard')
       } else {
+        // Debug info
+        console.log('User authenticated:', { 
+          id: user.id,
+          role: user.role,
+          idType: typeof user.id
+        })
+        
+        // Per verificare direttamente la tabella therapist_patients
+        supabase
+          .from('therapist_patients')
+          .select('*')
+          .then(({ data, error }) => {
+            console.log('DEBUG - Tutti i record therapist_patients:', data, 'Error:', error)
+          })
+        
         // Carica i pazienti
         fetchPatients()
       }
@@ -129,11 +144,70 @@ export default function TherapistDashboardPage() {
   const fetchPatients = async () => {
     setIsLoading(prev => ({ ...prev, patients: true }))
     try {
-      // Ottieni i pazienti dal database
+      console.log('fetchPatients - inizio', 'user ID:', user?.id, 'Tipo:', typeof user?.id)
+      
+      // Prima ottieni le relazioni terapeuta-paziente dal database
+      // Proviamo anche senza filtro per vedere tutti i record
+      const { data: allRelationships, error: allRelError } = await supabase
+        .from('therapist_patients')
+        .select('*')
+      
+      console.log('DEBUG - Tutte le relazioni:', allRelationships, 'Error:', allRelError)
+      
+      // Ora con il filtro
+      let relationData;
+      let relationError;
+      
+      const { data: initialRelationships, error: initialRelationshipError } = await supabase
+        .from('therapist_patients')
+        .select('patient_id, therapist_id')
+        .eq('therapist_id', String(user?.id))  // Converti esplicitamente in stringa
+      
+      relationData = initialRelationships;
+      relationError = initialRelationshipError;
+      
+      console.log('Relazioni terapeuta-paziente:', relationData, 'Errore:', relationError)
+      
+      // Se la query precedente non funziona, proviamo con un approccio alternativo
+      if (!relationData || relationData.length === 0) {
+        console.log('Provo approccio alternativo con .or')
+        const { data: altRelationships, error: altError } = await supabase
+          .from('therapist_patients')
+          .select('patient_id, therapist_id')
+          .or(`therapist_id.eq.${user?.id},therapist_id.eq.${String(user?.id)}`)
+        
+        console.log('Approccio alternativo:', altRelationships, 'Errore:', altError)
+        
+        // Se trovati con l'approccio alternativo, usa questi
+        if (altRelationships && altRelationships.length > 0) {
+          console.log('Usando risultati dell\'approccio alternativo')
+          relationData = altRelationships;
+          relationError = altError;
+        }
+      }
+      
+      if (relationError) throw relationError
+      
+      if (!relationData || relationData.length === 0) {
+        console.log('Nessuna relazione trovata per il terapeuta')
+        setPatients([])
+        setFilteredPatients([])
+        setIsLoading(prev => ({ ...prev, patients: false }))
+        return
+      }
+      
+      // Estrai gli ID dei pazienti collegati a questo terapeuta
+      const patientIds = relationData.map(rel => rel.patient_id)
+      console.log('IDs dei pazienti associati:', patientIds)
+      
+      // Ottieni i dettagli di questi pazienti specifici
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('role', 'patient')
+        .in('id', patientIds)
+      
+      console.log('Profili dei pazienti:', data, 'Errore:', error)
       
       if (error) throw error
       
@@ -145,6 +219,8 @@ export default function TherapistDashboardPage() {
             .select('*')
             .eq('patient_id', patient.id)
             .order('last_updated', { ascending: false })
+          
+          console.log(`Sessioni per paziente ${patient.id}:`, sessions)
           
           // Ottieni la nota relativa al paziente
           const { data: notes, error: notesError } = await supabase
@@ -172,6 +248,8 @@ export default function TherapistDashboardPage() {
         })
       )
       
+      console.log('Pazienti con sessioni:', patientsWithSessions)
+      
       // Calcola le statistiche
       const totalPatients = patientsWithSessions.length
       const activePatients = patientsWithSessions.filter(p => p.status === 'active').length
@@ -186,6 +264,7 @@ export default function TherapistDashboardPage() {
       
       setPatients(patientsWithSessions)
       setFilteredPatients(patientsWithSessions)
+      console.log('fetchPatients - completato con successo', patientsWithSessions.length)
     } catch (error) {
       console.error('Errore nel recupero dei pazienti:', error)
       toast.error('Errore', { description: 'Impossibile recuperare i pazienti' })
@@ -288,6 +367,118 @@ export default function TherapistDashboardPage() {
     }
   }
 
+  // Estendi la funzione testTherapistPatientRelation
+  const testTherapistPatientRelation = async () => {
+    console.log('-------- TEST THERAPIST-PATIENT RELATION --------')
+    console.log('User attuale:', user)
+    
+    try {
+      // 1. Verifica user ID
+      if (!user || !user.id) {
+        console.error('User non autenticato o mancante ID')
+        toast.error('Errore', { description: 'User non autenticato o mancante ID' })
+        return
+      }
+      
+      // 2. Test query diretta con ID utente formattati in diversi modi
+      console.log('Test con diversi formati ID')
+      
+      // Prova come stringa
+      const { data: test1, error: error1 } = await supabase
+        .from('therapist_patients')
+        .select('*')
+        .eq('therapist_id', String(user.id))
+      
+      console.log('Test come stringa:', { data: test1, error: error1 })
+      
+      // Prova come UUID (se appropriato)
+      const { data: test2, error: error2 } = await supabase
+        .from('therapist_patients')
+        .select('*')
+      
+      console.log('Test tutti i record:', { data: test2, error: error2 })
+      
+      // 3. Verifica le colonne della tabella e i tipi di dati
+      if (test2 && test2.length > 0) {
+        console.log('Schema della tabella (primo record):', 
+          Object.keys(test2[0]).map(key => `${key}: ${typeof test2[0][key]} (${test2[0][key]})`))
+        
+        // 4. Controlla se l'utente corrente ha relazioni
+        const userRelations = test2.filter(rel => 
+          String(rel.therapist_id) === String(user.id)
+        )
+        
+        console.log('Relazioni filtrate manualmente:', userRelations)
+        
+        // 5. Se trovate relazioni, recupera manualmente i pazienti
+        if (userRelations.length > 0) {
+          toast.success('Trovate relazioni', { 
+            description: `Trovate ${userRelations.length} relazioni, ma la query fallisce` 
+          })
+          
+          // Recupera pazienti manualmente
+          const patientIds = userRelations.map(rel => rel.patient_id)
+          console.log('IDs pazienti da recuperare:', patientIds)
+          
+          const { data: patientsData, error: patientsError } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', patientIds)
+          
+          console.log('Pazienti recuperati manualmente:', patientsData, 'Errore:', patientsError)
+          
+          if (patientsData && patientsData.length > 0) {
+            // Aggiorna la UI con questi pazienti recuperati manualmente
+            const updatedPatients = await Promise.all(
+              patientsData.map(async (patient) => {
+                const { data: sessions, error: sessionsError } = await supabase
+                  .from('chat_sessions')
+                  .select('*')
+                  .eq('patient_id', patient.id)
+                  .order('last_updated', { ascending: false })
+                
+                const sessionsData = sessionsError ? [] : sessions
+                const lastSessionDate = sessionsData[0]?.last_updated || null
+                
+                const isActive = lastSessionDate ? 
+                  (new Date().getTime() - new Date(lastSessionDate).getTime()) < 30 * 24 * 60 * 60 * 1000 
+                  : false
+                
+                return {
+                  ...patient,
+                  sessions: sessionsData,
+                  sessions_count: sessionsData.length,
+                  last_session: lastSessionDate,
+                  status: isActive ? 'active' : 'inactive',
+                  note: ''
+                }
+              })
+            )
+            
+            // Aggiorna l'interfaccia utente
+            setPatients(updatedPatients)
+            setFilteredPatients(updatedPatients)
+            toast.success('Pazienti recuperati manualmente', { 
+              description: `Trovati ${updatedPatients.length} pazienti` 
+            })
+          } else {
+            toast.error('Nessun paziente trovato', { description: 'Nessun paziente trovato con gli ID specificati' })
+          }
+        } else {
+          toast.warning('Nessuna relazione', { 
+            description: 'Nessuna relazione trovata per questo terapeuta' 
+          })
+        }
+      } else {
+        toast.error('Tabella vuota', { description: 'La tabella therapist_patients è vuota o non accessibile' })
+      }
+      
+    } catch (error) {
+      console.error('Errore test:', error)
+      toast.error('Errore test', { description: String(error) })
+    }
+  }
+
   // Mostra il loader mentre verifichiamo l'autenticazione
   if (loading) {
     return (
@@ -303,7 +494,36 @@ export default function TherapistDashboardPage() {
       <div className="mb-8 space-y-8">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Dashboard Terapeuta</h1>
-          <Button variant="outline" onClick={() => signOut()}>Logout</Button>
+          <div className="flex gap-2">
+            {/* Aggiungi il pulsante di test */}
+            <Button 
+              variant="outline"
+              onClick={testTherapistPatientRelation}
+              className="flex items-center gap-1"
+            >
+              <Search className="h-4 w-4" />
+              Test Relazioni
+            </Button>
+            {/* Pulsante per la pagina di debug profili */}
+            <Button 
+              variant="outline"
+              onClick={() => router.push('/profiles-debug')}
+              className="flex items-center gap-1"
+            >
+              <Microscope className="h-4 w-4 mr-1" />
+              Debug Profili
+            </Button>
+            {/* Nuovo pulsante per aggiungere relazioni */}
+            <Button 
+              variant="default"
+              onClick={() => router.push('/add-relation')}
+              className="flex items-center gap-1"
+            >
+              <PlusCircle className="h-4 w-4 mr-1" />
+              Aggiungi Relazione
+            </Button>
+            <Button variant="outline" onClick={() => signOut()}>Logout</Button>
+          </div>
         </div>
         
         {/* Statistiche generali */}
