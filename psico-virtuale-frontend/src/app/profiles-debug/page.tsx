@@ -115,10 +115,21 @@ export default function ProfilesDebugPage() {
         .select('*')
       
       if (error) throw error
-      setRelations(data || [])
+      
+      // Ensure we have valid data before setting state
+      if (data && Array.isArray(data)) {
+        // Filter out any potentially invalid records
+        const validRelations = data.filter(rel => rel && typeof rel === 'object')
+        setRelations(validRelations)
+        console.log('Relations loaded:', validRelations.length)
+      } else {
+        setRelations([])
+        console.log('No relations found or invalid data format')
+      }
       
     } catch (error: any) {
       console.error('Errore nel caricamento relazioni:', error)
+      setRelations([])
     } finally {
       setLoadingRelations(false)
     }
@@ -135,7 +146,7 @@ export default function ProfilesDebugPage() {
       
       // Verifica se esiste già localmente
       const existingRelation = relations.find(
-        rel => rel.therapist_id === user.id && rel.patient_id === patientId
+        rel => rel?.therapist_id === user.id && rel?.patient_id === patientId
       )
       
       if (existingRelation) {
@@ -165,11 +176,20 @@ export default function ProfilesDebugPage() {
         })
         
         // Aggiorna le relazioni con tutte le relazioni restituite dal server
-        if (result.allRelations) {
-          setRelations(result.allRelations)
-        } else {
-          // Altrimenti aggiungi solo la nuova relazione
-          setRelations([...relations, result.relation])
+        if (result.allRelations && Array.isArray(result.allRelations)) {
+          // Filter out any potentially invalid records
+          const validRelations = result.allRelations.filter((rel: any) => rel && typeof rel === 'object')
+          setRelations(validRelations)
+        } else if (result.relation && typeof result.relation === 'object') {
+          // Make sure we don't add duplicates
+          const relationExists = relations.some(
+            rel => rel?.therapist_id === result.relation.therapist_id && 
+                  rel?.patient_id === result.relation.patient_id
+          )
+          
+          if (!relationExists) {
+            setRelations([...relations, result.relation])
+          }
         }
         
         return
@@ -248,8 +268,8 @@ export default function ProfilesDebugPage() {
               <ul className="list-disc pl-5 space-y-1">
                 {relations.map((rel, idx) => (
                   <li key={idx} className="text-sm">
-                    Terapeuta: <code className="bg-gray-100 p-1 rounded">{rel.therapist_id}</code> → 
-                    Paziente: <code className="bg-gray-100 p-1 rounded">{rel.patient_id}</code>
+                    Terapeuta: <code className="bg-gray-100 p-1 rounded">{rel?.therapist_id || 'N/A'}</code> → 
+                    Paziente: <code className="bg-gray-100 p-1 rounded">{rel?.patient_id || 'N/A'}</code>
                   </li>
                 ))}
               </ul>
@@ -301,10 +321,10 @@ export default function ProfilesDebugPage() {
                     className="w-full"
                     onClick={() => addRelation(profile.id)}
                     disabled={loading || relations.some(
-                      rel => rel.therapist_id === user?.id && rel.patient_id === profile.id
+                      rel => rel?.therapist_id === user?.id && rel?.patient_id === profile.id
                     )}
                   >
-                    {relations.some(rel => rel.therapist_id === user?.id && rel.patient_id === profile.id)
+                    {relations.some(rel => rel?.therapist_id === user?.id && rel?.patient_id === profile.id)
                       ? "Già collegato"
                       : "Collega come paziente"}
                   </Button>

@@ -1,0 +1,166 @@
+-- Creazione della tabella delle note dei pazienti
+CREATE TABLE IF NOT EXISTS patient_notes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  patient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  content TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL
+);
+
+-- Indice per migliorare le prestazioni delle query
+CREATE INDEX IF NOT EXISTS idx_patient_notes_patient_id ON patient_notes(patient_id);
+
+-- Trigger per aggiornare automaticamente il timestamp di aggiornamento
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_patient_notes_updated_at
+BEFORE UPDATE ON patient_notes
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Politiche di accesso RLS (Row Level Security)
+ALTER TABLE patient_notes ENABLE ROW LEVEL SECURITY;
+
+-- Politica per terapeuti: possono vedere e modificare tutte le note
+CREATE POLICY therapist_policy ON patient_notes
+FOR ALL
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.role = 'therapist'
+  )
+);
+
+-- Politica per pazienti: possono vedere solo le proprie note
+CREATE POLICY patient_policy ON patient_notes
+FOR SELECT
+TO authenticated
+USING (
+  patient_id = auth.uid() AND
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE profiles.id = auth.uid() AND profiles.role = 'patient'
+  )
+); 
+
+-- Estensione UUID (dovrebbe essere già abilitata)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- TABELLA USERS (si integra con auth.users)
+CREATE TABLE public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('patient', 'therapist')),
+  first_name TEXT,
+  last_name TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_login TIMESTAMP WITH TIME ZONE,
+  avatar_url TEXT,
+  metadata JSONB
+);
+
+-- TABELLA CHAT_SESSIONS
+CREATE TABLE public.chat_sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  patient_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'archived'))
+);
+
+-- TABELLA MESSAGES
+CREATE TABLE public.messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  audio_url TEXT,
+  metadata JSONB
+);
+
+-- TABELLA AI_ANALYSES
+CREATE TABLE public.ai_analyses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  analysis_type TEXT NOT NULL,
+  analysis_data JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  analyzed_messages_count INTEGER
+);
+
+-- TABELLA THERAPIST_PATIENTS
+CREATE TABLE public.therapist_patients (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  therapist_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  patient_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'terminated')),
+  notes TEXT,
+  UNIQUE (therapist_id, patient_id)
+);
+
+-- TABELLA THERAPIST_NOTES
+CREATE TABLE public.therapist_notes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  therapist_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  patient_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE,
+  session_id UUID REFERENCES chat_sessions(id)
+);
+
+-- TABELLA PATIENT_MOOD_LOGS
+CREATE TABLE public.patient_mood_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  patient_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  mood_score INTEGER NOT NULL CHECK (mood_score BETWEEN 1 AND 10),
+  notes TEXT,
+  logged_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- INDICI per migliorare performance
+CREATE INDEX idx_messages_session_id ON messages(session_id);
+CREATE INDEX idx_chat_sessions_patient_id ON chat_sessions(patient_id);
+CREATE INDEX idx_therapist_patients_therapist_id ON therapist_patients(therapist_id);
+CREATE INDEX idx_therapist_patients_patient_id ON therapist_patients(patient_id);
+
+-- TRIGGER per aggiornare last_updated nelle chat_sessions
+CREATE OR REPLACE FUNCTION update_last_updated()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.last_updated = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_chat_session_last_updated
+BEFORE UPDATE ON chat_sessions
+FOR EACH ROW
+EXECUTE PROCEDURE update_last_updated();
+
+-- TRIGGER per aggiornare chat_sessions.last_updated quando si aggiunge un messaggio
+CREATE OR REPLACE FUNCTION update_session_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE chat_sessions
+  SET last_updated = NOW()
+  WHERE id = NEW.session_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER message_update_session_timestamp
+AFTER INSERT ON messages
+FOR EACH ROW
+EXECUTE PROCEDURE update_session_timestamp();
