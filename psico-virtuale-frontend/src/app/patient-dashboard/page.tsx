@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -71,7 +71,20 @@ export default function PatientDashboardPage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('chat')
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+  const isComponentMountedRef = useRef<boolean>(true)
+  const lastMessageTimeRef = useRef<Date | null>(null)
 
+  // Effetto per impostare e pulire il ref di montaggio
+  useEffect(() => {
+    isComponentMountedRef.current = true
+    
+    return () => {
+      isComponentMountedRef.current = false
+    }
+  }, [])
+  
+  // Effetto per il caricamento iniziale e routing
   useEffect(() => {
     // Reindirizza alla pagina di login se l'utente non è autenticato
     if (!loading && !user) {
@@ -87,6 +100,32 @@ export default function PatientDashboardPage() {
       fetchMoodData()
     }
   }, [user, loading, router])
+  
+  // Effetto per caricare i messaggi quando cambia la sessione attiva
+  useEffect(() => {
+    if (activeSession) {
+      fetchMessages(activeSession)
+      setLastUpdated(null) // Reset lastUpdated quando cambia sessione
+    }
+  }, [activeSession])
+  
+  // Effetto per il polling periodico dei messaggi
+  useEffect(() => {
+    if (!activeSession) return
+    
+    // Funzione per controllare gli aggiornamenti
+    const checkForUpdates = async () => {
+      if (isComponentMountedRef.current) {
+        await fetchMessages(activeSession, lastUpdated ?? undefined) 
+      }
+    }
+    
+    // Configura un intervallo per controllare nuovi messaggi ogni 3 secondi
+    const intervalId = setInterval(checkForUpdates, 3000)
+    
+    // Pulisci l'intervallo quando cambia la sessione o il componente viene smontato
+    return () => clearInterval(intervalId)
+  }, [activeSession, lastUpdated])
 
   // Funzione per recuperare le sessioni dell'utente
   const fetchSessions = async () => {
@@ -118,30 +157,58 @@ export default function PatientDashboardPage() {
   }
 
   // Funzione per recuperare i messaggi di una sessione
-  const fetchMessages = async (sessionId: string) => {
+  const fetchMessages = async (sessionId: string, lastUpdated?: string) => {
     if (!sessionId) return
     
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('messages')
         .select('*')
         .eq('session_id', sessionId)
-        .order('created_at', { ascending: true })
+      
+      // Se fornito, recupera solo i messaggi più recenti dell'ultimo aggiornamento
+      if (lastUpdated) {
+        query = query.gt('created_at', lastUpdated)
+      }
+      
+      // Ordina in ordine cronologico
+      const { data, error } = await query.order('created_at', { ascending: true })
       
       if (error) throw error
       
-      const formattedMessages: ChatMessage[] = data.map(msg => ({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.content
-      }))
+      // Se ci sono nuovi messaggi, aggiornali
+      if (data && data.length > 0) {
+        // Salva il timestamp dell'ultimo messaggio per il prossimo polling
+        setLastUpdated(data[data.length - 1].created_at)
+        
+        // Se questo è un aggiornamento (lastUpdated è definito), aggiungi solo i nuovi messaggi
+        if (lastUpdated) {
+          const formattedNewMessages: ChatMessage[] = data.map(msg => ({
+            role: msg.role === 'assistant' ? 'assistant' : 'user',
+            content: msg.content
+          }))
+          
+          setMessages(prev => [...prev, ...formattedNewMessages])
+        } else {
+          // Altrimenti, sostituisci tutti i messaggi
+          const formattedMessages: ChatMessage[] = data.map(msg => ({
+            role: msg.role === 'assistant' ? 'assistant' : 'user',
+            content: msg.content
+          }))
+          
+          setMessages(formattedMessages)
+        }
+      }
       
-      setMessages(formattedMessages)
-      
-      // Recupera le risorse consigliate per questa sessione
-      fetchResources(sessionId)
+      // Recupera le risorse consigliate solo durante il primo caricamento
+      if (!lastUpdated) {
+        fetchResources(sessionId)
+      }
     } catch (error) {
       console.error('Errore nel recupero dei messaggi:', error)
-      toast.error('Errore nel caricamento dei messaggi')
+      if (isComponentMountedRef.current) {
+        toast.error('Errore nel caricamento dei messaggi')
+      }
     }
   }
 
@@ -232,43 +299,24 @@ export default function PatientDashboardPage() {
     const userMessage: ChatMessage = { role: 'user', content: inputMessage }
     setMessages(prev => [...prev, userMessage])
     
-    // Salva il messaggio dell'utente nel database
-    try {
-      await supabase
-        .from('messages')
-        .insert({
-          session_id: activeSession,
-          role: 'user',
-          content: inputMessage
-        })
-    } catch (error) {
-      console.error('Errore nel salvataggio del messaggio:', error)
-    }
+    // Aggiunge un messaggio di caricamento temporaneo
+    const loadingMessage: ChatMessage = { role: 'assistant', content: '...', loading: true }
+    setMessages(prev => [...prev, loadingMessage])
     
+    // Salviamo il messaggio di input nella UI e lo cancelliamo dall'input
+    const messageToSend = inputMessage
     setInputMessage('')
     setIsSending(true)
     
     try {
-      // Invia il messaggio all'API
+      // Invia il messaggio all'API usando l'endpoint per la chat paziente
       const moodString = currentMood ? currentMood.toString() : undefined
-      const response = await apiClient.sendMessage(inputMessage, activeSession, moodString)
+      const response = await apiClient.sendMessage(messageToSend, activeSession, moodString, true) // true = isPatientChat
       
-      // Aggiunge la risposta dell'AI alla UI
-      const aiMessage: ChatMessage = { role: 'assistant', content: response.answer }
-      setMessages(prev => [...prev, aiMessage])
-      
-      // Salva la risposta dell'AI nel database
-      try {
-        await supabase
-          .from('messages')
-          .insert({
-            session_id: activeSession,
-            role: 'assistant',
-            content: response.answer
-          })
-      } catch (error) {
-        console.error('Errore nel salvataggio della risposta:', error)
-      }
+      // Rimuove il messaggio di caricamento e aggiunge la risposta effettiva
+      setMessages(prev => prev.filter(msg => !msg.loading).concat([
+        { role: 'assistant', content: response.answer }
+      ]))
       
       // Se c'è un audio URL, lo salva per la riproduzione
       if (response.audio_url) {
@@ -279,6 +327,14 @@ export default function PatientDashboardPage() {
       fetchResources(activeSession)
     } catch (error) {
       console.error('Errore nell\'invio del messaggio:', error)
+      // Rimuove il messaggio di caricamento
+      setMessages(prev => prev.filter(msg => !msg.loading))
+      // Mostra un messaggio di errore visibile nella chat
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Mi dispiace, si è verificato un errore. Prova a inviare di nuovo il messaggio o ricarica la pagina.',
+        isError: true 
+      }])
       toast.error('Errore nella comunicazione con l\'assistente')
     } finally {
       setIsSending(false)
@@ -336,6 +392,75 @@ export default function PatientDashboardPage() {
       toast.error('Errore nel salvataggio dell\'umore')
     }
   }
+
+  // Funzione per verificare se ci sono nuovi messaggi dal backend
+  const pollForNewMessages = useCallback(async () => {
+    if (!activeSession || isSending) return;
+    
+    try {
+      const { data: newMessages, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('session_id', activeSession)
+        .order('created_at', { ascending: true });
+        
+      if (error) {
+        console.error('Errore nel caricamento messaggi:', error);
+        return;
+      }
+      
+      if (newMessages && newMessages.length > 0) {
+        const lastDbMsgTime = new Date(newMessages[newMessages.length - 1].created_at);
+        // Se il riferimento è vuoto, imposta la data dell'ultimo messaggio
+        if (!lastMessageTimeRef.current) {
+          lastMessageTimeRef.current = lastDbMsgTime;
+        }
+        
+        // Se ci sono nuovi messaggi che non abbiamo visualizzato
+        else if (lastDbMsgTime > lastMessageTimeRef.current) {
+          console.log('Trovati nuovi messaggi dal polling, aggiorno UI');
+          
+          // Aggiorna il riferimento al timestamp dell'ultimo messaggio
+          lastMessageTimeRef.current = lastDbMsgTime;
+          
+          // Converti messaggi dal database in formato ChatMessage
+          const formattedMsgs: ChatMessage[] = newMessages.map(msg => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content
+          }));
+          
+          // Rimuovi i messaggi di caricamento e imposta i messaggi nel formato corretto
+          setMessages(prev => {
+            // Rimuovi i messaggi di caricamento temporanei
+            const realMessages = prev.filter(msg => !msg.loading);
+            
+            // Se il numero di messaggi dal database è maggiore, usa quelli
+            if (formattedMsgs.length > realMessages.length) {
+              return formattedMsgs;
+            }
+            
+            return realMessages;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Errore nel polling dei messaggi:', error);
+    }
+  }, [activeSession, isSending, supabase]);
+
+  // Avvia il polling
+  useEffect(() => {
+    if (!activeSession) return;
+    
+    // Esegui un polling ogni 5 secondi
+    const intervalId = setInterval(pollForNewMessages, 5000);
+    
+    // Esegui subito il polling all'attivazione
+    pollForNewMessages();
+    
+    // Pulizia all'unmount
+    return () => clearInterval(intervalId);
+  }, [activeSession, pollForNewMessages]);
 
   // Mostra il loader mentre verifichiamo l'autenticazione
   if (loading || !user) {
@@ -710,14 +835,27 @@ export default function PatientDashboardPage() {
                                 className={`max-w-[80%] p-4 rounded-2xl ${
                                   message.role === 'user'
                                     ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-gray-100 to-indigo-100/50 dark:from-gray-800 dark:to-indigo-900/30 text-gray-900 dark:text-gray-100 shadow-md'
+                                    : message.isError 
+                                      ? 'bg-gradient-to-r from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/20 text-red-700 dark:text-red-300 shadow-md'
+                                      : 'bg-gradient-to-r from-gray-100 to-indigo-100/50 dark:from-gray-800 dark:to-indigo-900/30 text-gray-900 dark:text-gray-100 shadow-md'
                                 }`}
                               >
-                                <div className="prose dark:prose-invert prose-sm max-w-none">
-                                  {message.content}
-                                </div>
+                                {message.loading ? (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="animate-pulse flex space-x-1">
+                                      <div className="h-2 w-2 bg-indigo-400 dark:bg-indigo-600 rounded-full"></div>
+                                      <div className="h-2 w-2 bg-indigo-400 dark:bg-indigo-600 rounded-full animation-delay-200"></div>
+                                      <div className="h-2 w-2 bg-indigo-400 dark:bg-indigo-600 rounded-full animation-delay-400"></div>
+                                    </div>
+                                    <span className="text-sm text-gray-600 dark:text-gray-300">L'assistente sta scrivendo...</span>
+                                  </div>
+                                ) : (
+                                  <div className="prose dark:prose-invert prose-sm max-w-none">
+                                    {message.content}
+                                  </div>
+                                )}
                                 
-                                {message.role === 'assistant' && index === messages.length - 1 && audioUrl && (
+                                {message.role === 'assistant' && !message.loading && !message.isError && audioUrl && (
                                   <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                                     <Button
                                       variant="ghost"
@@ -736,7 +874,7 @@ export default function PatientDashboardPage() {
                                   </div>
                                 )}
                                 
-                                {message.role === 'assistant' && (
+                                {message.role === 'assistant' && !message.loading && !message.isError && (
                                   <div className="flex items-center space-x-2 mt-2">
                                     <Button 
                                       variant="ghost" 

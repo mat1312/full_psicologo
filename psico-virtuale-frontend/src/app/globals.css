@@ -146,3 +146,12 @@
     background: linear-gradient(to right, oklch(0.80 0.05 40), oklch(0.75 0.08 30));
   }
 }
+
+/* Animazioni per indicatori di caricamento */
+.animation-delay-200 {
+  animation-delay: 0.2s;
+}
+
+.animation-delay-400 {
+  animation-delay: 0.4s;
+}
