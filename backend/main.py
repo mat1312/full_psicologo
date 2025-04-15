@@ -29,6 +29,17 @@ from qdrant_client import QdrantClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# FastAPI app
+app = FastAPI()
+
+# Import and include router from routes.py
+try:
+    from routes import router
+    app.include_router(router)
+    logger.info("Successfully loaded patient routes from routes.py")
+except ImportError as e:
+    logger.error(f"Failed to import patient routes: {e}")
+
 # Carica variabili d'ambiente
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -208,7 +219,7 @@ class SupabaseClient:
             
             # Log dettagliato della richiesta
             logger.info(f"Verificando token con Supabase. URL: {self.url}/auth/v1/user")
-            logger.info(f"Token length: {len(token)}, Prefix: {token[:10]}...")
+            logger.info(f"Token length: {len(token)}, Prefix: {token[:10] if token else 'None'}")
             
             try:
                 # Usa timeout più breve per questo endpoint critico
@@ -287,29 +298,35 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     """Verifica il token JWT di Supabase e restituisce l'utente"""
     try:
         token = credentials.credentials
+        logger.info(f"Token to verify: length={len(token)}, prefix={token[:10] if token else 'None'}")
         supabase = get_supabase()
         
         # Verifica token tramite endpoint Supabase
         user_data = await supabase.get_user(token)
         
         if user_data:
+            logger.info(f"Token valid, user: {user_data.get('id')}")
             return user_data
         else:
             # Per demo: invece di fallire, torna un utente demo con accesso limitato
             logger.warning(f"Token non valido, usando utente demo per compatibilità")
-            return {
+            demo_user = {
                 "id": "demo-user-id",
                 "email": "demo@example.com",
                 "role": "patient"
             }
+            logger.info(f"Returning demo user: {demo_user}")
+            return demo_user
     except Exception as e:
         logger.error(f"Errore verifica token: {str(e)}")
         # Per demo: invece di fallire, torna un utente demo con accesso limitato
-        return {
+        demo_user = {
             "id": "demo-user-id",
             "email": "demo@example.com",
             "role": "patient"
         }
+        logger.info(f"Returning demo user after exception: {demo_user}")
+        return demo_user
 
 # Funzione per ottenere il ruolo dell'utente da Supabase
 async def get_user_role(user_id: str) -> Optional[str]:
@@ -828,7 +845,7 @@ async def process_patient_query(request: QueryRequest, user_data: Dict):
         # Estrai la risposta
         answer = response.content
         
-        # Avvia il salvataggio della risposta, ma non attendere il completamento
+        # Avvia il salvataggio della risposta, ma non attendere l'analisi né il completamento del salvataggio
         # Il salvataggio può continuare in background
         save_task = asyncio.create_task(save_message(request.session_id, "assistant", answer))
         
@@ -1310,6 +1327,50 @@ async def shutdown_event():
     """Chiude le connessioni durante lo shutdown."""
     if supabase_client:
         await supabase_client.close()
+
+@app.get("/patients/{patient_id}/recommendations", response_model=ResourceResponse)
+async def patient_recommendations_endpoint(
+    patient_id: str, 
+    query: Optional[str] = None, 
+    user_data: Dict = Depends(verify_token)
+):
+    """Endpoint for patient-specific resource recommendations."""
+    logger.info(f"Patient recommendations request for patient: {patient_id}, query: {query}")
+    logger.info(f"User data: {user_data}")  # Log user data for debugging
+    
+    # Create a resource request with the session ID from the query parameter
+    request = ResourceRequest(
+        query=query or "", 
+        session_id=query or ""  # Use query as session_id if provided
+    )
+    
+    try:
+        # Reuse the existing recommend_resources logic
+        return await recommend_resources(request)
+    except Exception as e:
+        logger.error(f"Error in patient recommendations: {str(e)}")
+        # Return empty resources as fallback to avoid 403
+        return ResourceResponse(resources=[])
+
+# Add a public endpoint without token verification for development
+@app.get("/api/public/recommendations", response_model=ResourceResponse)
+async def public_recommendations_endpoint(session_id: Optional[str] = None):
+    """Public endpoint for resource recommendations without auth (for development)."""
+    logger.info(f"Public recommendations request with session_id: {session_id}")
+    
+    # Create a resource request with the provided session ID
+    request = ResourceRequest(
+        query=session_id or "", 
+        session_id=session_id or ""
+    )
+    
+    try:
+        # Reuse the existing recommend_resources logic
+        return await recommend_resources(request)
+    except Exception as e:
+        logger.error(f"Error in public recommendations: {str(e)}")
+        # Return empty resources list as fallback
+        return ResourceResponse(resources=[])
 
 # Avvio dell'applicazione
 if __name__ == "__main__":

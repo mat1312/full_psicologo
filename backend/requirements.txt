@@ -11,3 +11,4 @@ openai
 numpy
 pandas
 qdrant-client
+langchain_community

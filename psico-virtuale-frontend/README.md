@@ -1,3 +1,38 @@
+# Psicologo Virtuale Frontend
+
+## Installation
+
+1. Install Node.js 16+ and npm
+2. Install dependencies:
+```
+npm install
+```
+
+## Running the development server
+
+### On Windows PowerShell
+PowerShell on Windows doesn't support the `&&` operator for command chaining. Use these commands instead:
+
+```powershell
+# Navigate to the frontend directory
+cd psico-virtuale-frontend
+
+# Start the development server
+npm run dev
+```
+
+### On Bash/Linux/macOS Terminal
+```bash
+cd psico-virtuale-frontend && npm run dev
+```
+
+## Features
+
+- Patient dashboard with chat interface
+- Resource recommendations
+- Mood tracking
+- Session management
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

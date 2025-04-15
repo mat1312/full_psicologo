@@ -115,7 +115,8 @@ export default function PatientDashboardPage() {
     
     // Funzione per controllare gli aggiornamenti
     const checkForUpdates = async () => {
-      if (isComponentMountedRef.current) {
+      // Skip polling if we're currently sending a message to avoid duplicates
+      if (isComponentMountedRef.current && !isSending) {
         await fetchMessages(activeSession, lastUpdated ?? undefined) 
       }
     }
@@ -125,7 +126,7 @@ export default function PatientDashboardPage() {
     
     // Pulisci l'intervallo quando cambia la sessione o il componente viene smontato
     return () => clearInterval(intervalId)
-  }, [activeSession, lastUpdated])
+  }, [activeSession, lastUpdated, isSending])
 
   // Funzione per recuperare le sessioni dell'utente
   const fetchSessions = async () => {
@@ -183,20 +184,31 @@ export default function PatientDashboardPage() {
         
         // Se questo è un aggiornamento (lastUpdated è definito), aggiungi solo i nuovi messaggi
         if (lastUpdated) {
-          const formattedNewMessages: ChatMessage[] = data.map(msg => ({
-            role: msg.role === 'assistant' ? 'assistant' : 'user',
-            content: msg.content
-          }))
+          // Check if any of these messages are already in our UI (to prevent duplicates)
+          const existingContents = messages.map(msg => msg.content);
           
-          setMessages(prev => [...prev, ...formattedNewMessages])
+          const formattedNewMessages = data
+            .filter(msg => !existingContents.includes(msg.content)) // Only add messages we don't already have
+            .map(msg => ({
+              role: msg.role === 'assistant' ? 'assistant' as const : 'user' as const,
+              content: msg.content,
+              id: msg.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              timestamp: msg.created_at
+            }));
+          
+          if (formattedNewMessages.length > 0) {
+            setMessages(prev => [...prev, ...formattedNewMessages as ChatMessage[]]);
+          }
         } else {
           // Altrimenti, sostituisci tutti i messaggi
-          const formattedMessages: ChatMessage[] = data.map(msg => ({
-            role: msg.role === 'assistant' ? 'assistant' : 'user',
-            content: msg.content
-          }))
+          const formattedMessages = data.map(msg => ({
+            role: msg.role === 'assistant' ? 'assistant' as const : 'user' as const,
+            content: msg.content,
+            id: msg.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: msg.created_at
+          }));
           
-          setMessages(formattedMessages)
+          setMessages(formattedMessages as ChatMessage[])
         }
       }
       
@@ -212,13 +224,25 @@ export default function PatientDashboardPage() {
     }
   }
 
+  // Disabilita completamente il polling quando non è necessario
+  useEffect(() => {
+    // Disattiva il polling quando stiamo già inviando un messaggio
+    if (isSending) {
+      // Resetta il riferimento del tempo dell'ultimo messaggio per evitare che il polling aggiunga duplicati
+      lastMessageTimeRef.current = new Date();
+    }
+  }, [isSending]);
+
   // Funzione per recuperare le risorse consigliate
   const fetchResources = async (sessionId: string) => {
     if (!sessionId) return;
     
     try {
-      const response = await apiClient.getResourceRecommendations('', sessionId);
-      setResources(response.resources);
+      // Use the correct parameters order for getResourceRecommendations
+      const recommendations = await apiClient.getResourceRecommendations(user?.id || '', sessionId);
+      
+      // Make sure we're setting a valid array, even if empty
+      setResources(recommendations || []);
     } catch (error: any) {
       console.error('Errore nel recupero delle risorse:', error);
       
@@ -295,13 +319,28 @@ export default function PatientDashboardPage() {
   const sendMessage = async () => {
     if (!inputMessage.trim() || !activeSession) return
     
+    // Prepare unique IDs for messages
+    const userMsgId = `user-${Date.now()}`
+    const currentTime = new Date().toISOString()
+    
     // Aggiunge immediatamente il messaggio dell'utente alla UI
-    const userMessage: ChatMessage = { role: 'user', content: inputMessage }
+    const userMessage: ChatMessage = { 
+      role: 'user', 
+      content: inputMessage,
+      id: userMsgId,
+      timestamp: currentTime
+    }
     setMessages(prev => [...prev, userMessage])
     
     // Aggiunge un messaggio di caricamento temporaneo
-    const loadingMessage: ChatMessage = { role: 'assistant', content: '...', loading: true }
-    setMessages(prev => [...prev, loadingMessage])
+    const loadingMessage = { 
+      role: 'assistant' as 'assistant', 
+      content: '...', 
+      id: `loading-${Date.now()}`,
+      timestamp: currentTime,
+      loading: true // Custom property not in the type
+    }
+    setMessages(prev => [...prev, loadingMessage as any])
     
     // Salviamo il messaggio di input nella UI e lo cancelliamo dall'input
     const messageToSend = inputMessage
@@ -314,9 +353,22 @@ export default function PatientDashboardPage() {
       const response = await apiClient.sendMessage(messageToSend, activeSession, moodString, true) // true = isPatientChat
       
       // Rimuove il messaggio di caricamento e aggiunge la risposta effettiva
-      setMessages(prev => prev.filter(msg => !msg.loading).concat([
-        { role: 'assistant', content: response.answer }
+      setMessages(prev => prev.filter((msg: any) => !msg.loading).concat([
+        { 
+          role: 'assistant', 
+          content: response.answer,
+          id: `assistant-${Date.now()}`,
+          timestamp: response.timestamp || new Date().toISOString()
+        }
       ]))
+      
+      // Aggiorna il timestamp dell'ultimo messaggio per evitare che il polling duplichi i messaggi
+      if (response.timestamp) {
+        lastMessageTimeRef.current = new Date(response.timestamp);
+      } else {
+        // Se non c'è timestamp nella risposta, aggiorna comunque il riferimento
+        lastMessageTimeRef.current = new Date();
+      }
       
       // Se c'è un audio URL, lo salva per la riproduzione
       if (response.audio_url) {
@@ -328,13 +380,15 @@ export default function PatientDashboardPage() {
     } catch (error) {
       console.error('Errore nell\'invio del messaggio:', error)
       // Rimuove il messaggio di caricamento
-      setMessages(prev => prev.filter(msg => !msg.loading))
+      setMessages(prev => prev.filter((msg: any) => !msg.loading))
       // Mostra un messaggio di errore visibile nella chat
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: 'Mi dispiace, si è verificato un errore. Prova a inviare di nuovo il messaggio o ricarica la pagina.',
+        id: `error-${Date.now()}`,
+        timestamp: new Date().toISOString(),
         isError: true 
-      }])
+      } as any])
       toast.error('Errore nella comunicazione con l\'assistente')
     } finally {
       setIsSending(false)
@@ -395,71 +449,16 @@ export default function PatientDashboardPage() {
 
   // Funzione per verificare se ci sono nuovi messaggi dal backend
   const pollForNewMessages = useCallback(async () => {
-    if (!activeSession || isSending) return;
-    
-    try {
-      const { data: newMessages, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('session_id', activeSession)
-        .order('created_at', { ascending: true });
-        
-      if (error) {
-        console.error('Errore nel caricamento messaggi:', error);
-        return;
-      }
-      
-      if (newMessages && newMessages.length > 0) {
-        const lastDbMsgTime = new Date(newMessages[newMessages.length - 1].created_at);
-        // Se il riferimento è vuoto, imposta la data dell'ultimo messaggio
-        if (!lastMessageTimeRef.current) {
-          lastMessageTimeRef.current = lastDbMsgTime;
-        }
-        
-        // Se ci sono nuovi messaggi che non abbiamo visualizzato
-        else if (lastDbMsgTime > lastMessageTimeRef.current) {
-          console.log('Trovati nuovi messaggi dal polling, aggiorno UI');
-          
-          // Aggiorna il riferimento al timestamp dell'ultimo messaggio
-          lastMessageTimeRef.current = lastDbMsgTime;
-          
-          // Converti messaggi dal database in formato ChatMessage
-          const formattedMsgs: ChatMessage[] = newMessages.map(msg => ({
-            role: msg.role as 'user' | 'assistant',
-            content: msg.content
-          }));
-          
-          // Rimuovi i messaggi di caricamento e imposta i messaggi nel formato corretto
-          setMessages(prev => {
-            // Rimuovi i messaggi di caricamento temporanei
-            const realMessages = prev.filter(msg => !msg.loading);
-            
-            // Se il numero di messaggi dal database è maggiore, usa quelli
-            if (formattedMsgs.length > realMessages.length) {
-              return formattedMsgs;
-            }
-            
-            return realMessages;
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Errore nel polling dei messaggi:', error);
-    }
-  }, [activeSession, isSending, supabase]);
+    // This functionality is now handled by the checkForUpdates function
+    // Keep this function as a stub to avoid changing too many references
+    return;
+  }, [activeSession, isSending, supabase, messages.length]);
 
-  // Avvia il polling
+  // Avvia il polling - disabled to prevent duplicate messages
   useEffect(() => {
-    if (!activeSession) return;
-    
-    // Esegui un polling ogni 5 secondi
-    const intervalId = setInterval(pollForNewMessages, 5000);
-    
-    // Esegui subito il polling all'attivazione
-    pollForNewMessages();
-    
-    // Pulizia all'unmount
-    return () => clearInterval(intervalId);
+    // This polling is disabled to prevent duplicate messages
+    // The checkForUpdates function is now handling all polling
+    return;
   }, [activeSession, pollForNewMessages]);
 
   // Mostra il loader mentre verifichiamo l'autenticazione
@@ -621,7 +620,7 @@ export default function PatientDashboardPage() {
                       <CardTitle className="text-sm font-medium text-muted-foreground">Risorse</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold">{resources.length}</div>
+                      <div className="text-3xl font-bold">{resources ? resources.length : 0}</div>
                       <div className="mt-2 flex items-center text-muted-foreground text-sm">
                         <Book className="h-4 w-4 mr-1 text-purple-500" />
                         Materiali consigliati
