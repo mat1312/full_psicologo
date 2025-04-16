@@ -22,6 +22,28 @@ export interface ResourceRecommendation extends ResourceItem {
   matchReason?: string;
 }
 
+// Interfaces for therapist dashboard
+export interface SessionSummaryResponse {
+  summary_html: string;
+}
+
+export interface MoodAnalysisResponse {
+  mood_analysis: string;
+}
+
+export interface PathologyItem {
+  name: string;
+  description: string;
+  confidence: number;
+  key_symptoms: string[];
+  source?: string;
+}
+
+export interface PathologyAnalysisResponse {
+  possible_pathologies: PathologyItem[];
+  analysis_summary: string;
+}
+
 // Mock data for development
 const MOCK_DATA = {
   messages: [
@@ -81,11 +103,71 @@ const MOCK_DATA = {
       matchReason: 'Utile per i sintomi fisici dell\'ansia',
       createdAt: new Date(Date.now() - 345600000).toISOString()
     }
-  ] as ResourceRecommendation[]
+  ] as ResourceRecommendation[],
+  
+  sessionSummary: {
+    summary_html: `
+      <div class="p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-xl font-semibold mb-4 text-blue-700">Riepilogo della Sessione</h2>
+        <div class="mb-4 pb-3 border-b border-gray-200">
+          <div class="mb-1"><span class="text-gray-700 font-medium">Paziente:</span></div>
+          <p class="pl-2">Mi sento molto ansioso ultimamente. Ho problemi a dormire e mi preoccupo costantemente.</p>
+        </div>
+        <div class="mb-4 pb-3 border-b border-gray-200">
+          <div class="mb-1"><span class="text-blue-600 font-medium">Psicologo:</span></div>
+          <p class="pl-2">Capisco che stai attraversando un periodo difficile. L'ansia e i problemi di sonno spesso vanno di pari passo. Da quanto tempo noti questi sintomi?</p>
+        </div>
+        <div class="mb-4 pb-3 border-b border-gray-200">
+          <div class="mb-1"><span class="text-gray-700 font-medium">Paziente:</span></div>
+          <p class="pl-2">È iniziato circa un mese fa, dopo un periodo molto stressante al lavoro.</p>
+        </div>
+      </div>
+    `
+  },
+  
+  moodAnalysis: {
+    mood_analysis: `
+      # Analisi della Conversazione Terapeutica
+      
+      ## 1. Valutazione dell'umore generale del paziente
+      Il paziente mostra segni di ansia moderata, associata a difficoltà del sonno e preoccupazioni costanti. Il tono emotivo generale è di stress e apprensione, con una chiara consapevolezza del problema.
+      
+      ## 2. Eventuali schemi di pensiero o comportamento ricorrenti
+      Si nota una tendenza alla preoccupazione anticipatoria e possibilmente un collegamento tra stress lavorativo e sintomi d'ansia. Il paziente sembra fare connessioni tra eventi esterni e il proprio stato emotivo.
+      
+      ## 3. Suggerimenti per il terapeuta su come procedere nella prossima sessione
+      - Esplorare ulteriormente la relazione tra stress lavorativo e sintomi d'ansia
+      - Valutare la qualità e quantità del sonno con maggiori dettagli
+      - Introdurre possibili tecniche di rilassamento come la respirazione profonda o la mindfulness
+    `
+  },
+  
+  pathologyAnalysis: {
+    possible_pathologies: [
+      {
+        name: "Disturbo d'Ansia Generalizzato",
+        description: "Ansia e preoccupazione eccessive e persistenti riguardo vari aspetti della vita quotidiana",
+        confidence: 0.75,
+        key_symptoms: ["Preoccupazione costante", "Problemi di sonno", "Ansia legata a situazioni di stress"],
+        source: "DSM-5: 300.02"
+      },
+      {
+        name: "Disturbo dell'Adattamento con Ansia",
+        description: "Reazione ansiosa a un fattore di stress identificabile che causa disagio significativo",
+        confidence: 0.63,
+        key_symptoms: ["Ansia in risposta a fattori di stress", "Insorgenza temporalmente correlata a eventi stressanti", "Difficoltà di sonno"],
+        source: "DSM-5: 309.24"
+      }
+    ],
+    analysis_summary: "L'analisi suggerisce la presenza di sintomi compatibili con forme di ansia che potrebbero essere collegate a fattori stressanti identificati (lavoro). I sintomi descritti sono coerenti con un disturbo d'ansia di intensità moderata, ma una diagnosi definitiva richiederebbe un'esplorazione più approfondita e un'anamnesi completa. Consigliabile valutare l'impatto funzionale dell'ansia e monitorare l'evoluzione dei sintomi."
+  }
 };
 
 // Flag to determine if we should use mock data (disable by default)
 const USE_MOCK_DATA = false; // Set to true manually if needed for testing
+
+// DEMO MODE: Abilitare per presentazioni senza backend
+const DEMO_MODE = true;
 
 // Create axios instance with default config
 const instance = axios.create({
@@ -225,6 +307,14 @@ export const apiClient = {
   
   // Resource recommendation methods
   getResourceRecommendations: async (patientId: string, sessionId?: string): Promise<ResourceRecommendation[]> => {
+    // In DEMO MODE, ritorna sempre i dati mock
+    if (DEMO_MODE) {
+      console.log('DEMO MODE: Using mock recommendations data');
+      // Simula un breve ritardo per rendere più realistico
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return MOCK_DATA.recommendations;
+    }
+    
     // Create a cache key
     const cacheKey = `${patientId}:${sessionId || 'none'}`;
     
@@ -294,5 +384,135 @@ export const apiClient = {
     // Store the promise in the cache and return it
     recommendationsCache[cacheKey] = requestPromise;
     return requestPromise;
+  },
+  
+  // Therapist dashboard methods
+  
+  // Get session summary for therapist dashboard
+  getSessionSummary: async (sessionId: string): Promise<SessionSummaryResponse> => {
+    // Return mock data if enabled or in demo mode
+    if (USE_MOCK_DATA || DEMO_MODE) {
+      console.log('Using mock session summary data');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return MOCK_DATA.sessionSummary;
+    }
+    
+    try {
+      // Try to use the server route first (which can handle authentication)
+      try {
+        const response = await fetch(`/api/session-summary/${sessionId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (serverError) {
+        console.error('Server route error:', serverError);
+        
+        // If server route fails, try direct backend call
+        const response = await instance.get<SessionSummaryResponse>(`/api/session-summary/${sessionId}`);
+        return response.data;
+      }
+    } catch (error) {
+      console.error('Error fetching session summary:', error);
+      // Return mock data as fallback
+      return MOCK_DATA.sessionSummary;
+    }
+  },
+  
+  // Get mood analysis for therapist dashboard
+  getMoodAnalysis: async (sessionId: string): Promise<MoodAnalysisResponse> => {
+    // Return mock data if enabled or in demo mode
+    if (USE_MOCK_DATA || DEMO_MODE) {
+      console.log('Using mock mood analysis data');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return MOCK_DATA.moodAnalysis;
+    }
+    
+    try {
+      // Try to use the server route first
+      try {
+        const response = await fetch(`/api/mood-analysis`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            analyze_chatbot: true
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (serverError) {
+        console.error('Server route error for mood analysis:', serverError);
+        
+        // If server route fails, try direct backend call
+        const response = await instance.get<MoodAnalysisResponse>(`/api/mood-analysis/${sessionId}`);
+        return response.data;
+      }
+    } catch (error) {
+      console.error('Error fetching mood analysis:', error);
+      // Return mock data as fallback
+      return MOCK_DATA.moodAnalysis;
+    }
+  },
+  
+  // Get pathology analysis for therapist dashboard
+  getPathologyAnalysis: async (sessionId: string): Promise<PathologyAnalysisResponse> => {
+    // Return mock data if enabled or in demo mode
+    if (USE_MOCK_DATA || DEMO_MODE) {
+      console.log('Using mock pathology analysis data');
+      await new Promise(resolve => setTimeout(resolve, 700));
+      return MOCK_DATA.pathologyAnalysis;
+    }
+    
+    try {
+      // Try to use the server route first
+      try {
+        const response = await fetch(`/api/pathology-analysis`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            analyze_chatbot: true
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (serverError) {
+        console.error('Server route error for pathology analysis:', serverError);
+        
+        // If server route fails, try direct backend call
+        const response = await instance.post<PathologyAnalysisResponse>(`/api/pathology-analysis`, {
+          session_id: sessionId,
+          analyze_chatbot: true
+        });
+        return response.data;
+      }
+    } catch (error) {
+      console.error('Error fetching pathology analysis:', error);
+      // Return mock data as fallback
+      return MOCK_DATA.pathologyAnalysis;
+    }
   }
 }; 

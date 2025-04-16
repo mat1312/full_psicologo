@@ -28,16 +28,7 @@ export default function LoginPage() {
         if (session) {
           // Inizializza lo store per assicurarsi che user sia impostato
           await initialize()
-          
-          // Verifica il ruolo dell'utente e reindirizza di conseguenza
-          const currentUser = useAuthStore.getState().user
-          if (currentUser?.role === 'therapist') {
-            // window.location.href = '/therapist-dashboard'
-            router.push('/therapist-dashboard')
-          } else {
-            // window.location.href = '/patient-dashboard'
-            router.push('/patient-dashboard')
-          }
+          // Nota: il reindirizzamento verrà gestito dall'AuthProvider
         }
       } catch (error) {
         console.error("Errore durante il controllo della sessione:", error)
@@ -45,7 +36,7 @@ export default function LoginPage() {
     }
     
     checkSession()
-  }, [initialize, router])
+  }, [initialize])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,13 +48,6 @@ export default function LoginPage() {
     
     setLoading(true)
     
-    // Timeout per evitare attese infinite
-    const authTimeout = setTimeout(() => {
-      console.log("Login timeout - operazione bloccata")
-      setLoading(false)
-      toast.error("Errore", { description: "Operazione interrotta per timeout. Riprova." })
-    }, 10000) // 10 secondi di timeout
-
     try {
       if (isLogin) {
         console.log("Tentativo di login con:", email)
@@ -74,50 +58,13 @@ export default function LoginPage() {
           password,
         })
 
-        // Cancella il timeout una volta completata l'operazione
-        clearTimeout(authTimeout)
-
         if (error) throw error
         
         console.log("Login completato con successo:", data.user?.id)
         toast.success("Accesso effettuato")
         
-        console.log("Inizializzazione store...")
-        try {
-          await initialize()
-          console.log("Store inizializzato")
-          
-          // Ottieni il ruolo dall'utente nello store o dai metadata
-          const userRole = useAuthStore.getState().user?.role || data.user?.user_metadata?.role || 'patient'
-          
-          console.log("Reindirizzamento in corso in base al ruolo:", userRole)
-          
-          // Utilizzare router.push invece di window.location.href
-          // setTimeout(() => {
-            if (userRole === 'therapist') {
-              // window.location.href = '/therapist-dashboard'
-              router.push('/therapist-dashboard')
-            } else {
-              // window.location.href = '/patient-dashboard'
-              router.push('/patient-dashboard')
-            }
-          // }, 1000)
-        } catch (initError) {
-          console.error("Errore durante l'inizializzazione:", initError)
-          
-          // Anche in caso di errore, tenta di utilizzare il ruolo dai metadata
-          const userRole = data.user?.user_metadata?.role || 'patient'
-          
-          // setTimeout(() => {
-            if (userRole === 'therapist') {
-              // window.location.href = '/therapist-dashboard'
-              router.push('/therapist-dashboard')
-            } else {
-              // window.location.href = '/patient-dashboard'
-              router.push('/patient-dashboard')
-            }
-          // }, 1000)
-        }
+        // L'inizializzazione dello store e il reindirizzamento saranno gestiti dall'AuthProvider
+        await initialize()
       } else {
         // Registrazione
         toast.info("Registrazione in corso...", { id: "signup-toast" })
@@ -133,9 +80,6 @@ export default function LoginPage() {
             }
           }
         })
-
-        // Cancella il timeout
-        clearTimeout(authTimeout)
 
         if (error) throw error
 
@@ -187,48 +131,17 @@ export default function LoginPage() {
 
           toast.success("Registrazione completata come " + (role === 'therapist' ? 'psicologo' : 'paziente'), { id: "signup-toast" });
           
-          console.log("Inizializzazione store dopo registrazione...");
-          try {
-            await initialize();
-            console.log("Store inizializzato");
-          } catch (initError) {
-            console.error("Errore durante l'inizializzazione:", initError);
-          }
-          
-          // Utilizzare router.push invece di window.location.href
-          // setTimeout(() => {
-            console.log("Reindirizzamento in base al ruolo scelto:", role);
-            if (role === 'therapist') {
-              // window.location.href = '/therapist-dashboard'
-              router.push('/therapist-dashboard')
-            } else {
-              // window.location.href = '/patient-dashboard'
-              router.push('/patient-dashboard')
-            }
-          // }, 1000);
+          // Inizializza lo store ma lascia che sia AuthProvider a gestire il reindirizzamento
+          await initialize();
         } catch (profileError: any) {
           console.error("Errore dettagliato:", profileError);
           toast.error("Errore nella creazione del profilo", {
             id: "signup-toast",
             description: profileError?.message || "Controlla la console per dettagli"
           });
-          
-          // Nonostante l'errore del profilo, reindirizza in base al ruolo scelto
-          // setTimeout(() => {
-            if (role === 'therapist') {
-              // window.location.href = '/therapist-dashboard'
-              router.push('/therapist-dashboard')
-            } else {
-              // window.location.href = '/patient-dashboard'
-              router.push('/patient-dashboard')
-            }
-          // }, 1000);
         }
       }
     } catch (error: any) {
-      // Cancella il timeout in caso di errore
-      clearTimeout(authTimeout)
-      
       console.error("Errore di autenticazione:", error);
       
       // Messaggi di errore più leggibili

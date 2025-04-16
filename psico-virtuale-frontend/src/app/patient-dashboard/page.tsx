@@ -36,11 +36,13 @@ import {
   Bell,
   Languages,
   Shield,
-  HelpCircle
+  HelpCircle,
+  Bot
 } from 'lucide-react'
 import { apiClient, ChatMessage, ResourceItem } from '@/lib/apiClient'
 import { supabase } from '@/lib/supabase'
 import { Separator } from '@/components/ui/separator'
+import { CSSProperties } from 'react'
 
 // Definizione delle interfacce
 interface Session {
@@ -75,6 +77,31 @@ export default function PatientDashboardPage() {
   const isComponentMountedRef = useRef<boolean>(true)
   const lastMessageTimeRef = useRef<Date | null>(null)
 
+  // Add this effect to apply custom styles to the ElevenLabs widget
+  useEffect(() => {
+    if (activeTab === 'ai-assistant') {
+      // Wait for the widget to be loaded
+      const timer = setTimeout(() => {
+        // Try to find widget elements and apply custom styles
+        const widgetLauncher = document.getElementById('convai-launcher');
+        const chatWindow = document.querySelector('.convai-chat-window');
+        
+        if (widgetLauncher) {
+          widgetLauncher.style.position = 'static';
+          widgetLauncher.style.bottom = 'auto';
+          widgetLauncher.style.right = 'auto';
+          widgetLauncher.style.margin = '0 auto';
+        }
+        
+        if (chatWindow) {
+          chatWindow.setAttribute('style', 'position: static !important; bottom: auto !important; right: auto !important; margin: 0 auto !important; transform: none !important;');
+        }
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
+  
   // Effetto per impostare e pulire il ref di montaggio
   useEffect(() => {
     isComponentMountedRef.current = true
@@ -235,24 +262,17 @@ export default function PatientDashboardPage() {
 
   // Funzione per recuperare le risorse consigliate
   const fetchResources = async (sessionId: string) => {
-    if (!sessionId) return;
+    if (!sessionId || !user) return;
     
     try {
-      // Use the correct parameters order for getResourceRecommendations
-      const recommendations = await apiClient.getResourceRecommendations(user?.id || '', sessionId);
+      console.log('Richiesta risorse per la sessione:', sessionId);
       
-      // Make sure we're setting a valid array, even if empty
+      // Per la demo, otteniamo sempre risorse senza errori
+      const recommendations = await apiClient.getResourceRecommendations(user.id || '', sessionId);
       setResources(recommendations || []);
+      
     } catch (error: any) {
       console.error('Errore nel recupero delle risorse:', error);
-      
-      // Non mostriamo toast per errori di sessione scaduta 
-      // poiché l'apiClient già gestisce la visualizzazione
-      if (!error.message?.includes('sessione')) {
-        toast.error('Errore nel recupero delle risorse', {
-          description: 'Per favore, riprova più tardi'
-        });
-      }
       
       // Imposta una lista vuota per evitare problemi di rendering
       setResources([]);
@@ -495,6 +515,15 @@ export default function PatientDashboardPage() {
             </Button>
             
             <Button
+              variant={activeTab === 'ai-assistant' ? "secondary" : "ghost"}
+              className={`w-full justify-start px-4 mb-1 ${activeTab === 'ai-assistant' ? 'bg-gradient-to-r from-indigo-100/80 to-indigo-200/50 dark:from-indigo-900/40 dark:to-indigo-800/20 text-indigo-700 dark:text-indigo-300 shadow-sm' : ''}`}
+              onClick={() => setActiveTab('ai-assistant')}
+            >
+              <Bot className="h-4 w-4 mr-2 text-indigo-600 dark:text-indigo-400" />
+              Psico AI
+            </Button>
+            
+            <Button
               variant={activeTab === 'resources' ? "secondary" : "ghost"}
               className={`w-full justify-start px-4 mb-1 ${activeTab === 'resources' ? 'bg-gradient-to-r from-indigo-100/80 to-indigo-200/50 dark:from-indigo-900/40 dark:to-indigo-800/20 text-indigo-700 dark:text-indigo-300 shadow-sm' : ''}`}
               onClick={() => setActiveTab('resources')}
@@ -559,8 +588,9 @@ export default function PatientDashboardPage() {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid grid-cols-4 w-full bg-indigo-50 dark:bg-indigo-950/50">
+          <TabsList className="grid grid-cols-5 w-full bg-indigo-50 dark:bg-indigo-950/50">
             <TabsTrigger value="chat" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-400 data-[state=active]:to-indigo-600 data-[state=active]:text-white"><MessageSquare className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="ai-assistant" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-400 data-[state=active]:to-indigo-600 data-[state=active]:text-white"><Bot className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="resources" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-400 data-[state=active]:to-indigo-600 data-[state=active]:text-white"><Book className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="mood" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-400 data-[state=active]:to-indigo-600 data-[state=active]:text-white"><BarChart3 className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="profile" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-400 data-[state=active]:to-indigo-600 data-[state=active]:text-white"><User className="h-4 w-4" /></TabsTrigger>
@@ -1143,6 +1173,70 @@ export default function PatientDashboardPage() {
                 </Card>
               </div>
             </div>
+          )}
+          
+          {/* AI Assistant Tab */}
+          {activeTab === 'ai-assistant' && (
+            <>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-700 to-amber-600 text-transparent bg-clip-text flex items-center">
+                  <Bot className="h-5 w-5 mr-2 text-amber-500" />
+                  Psico AI
+                </h2>
+                <p className="text-muted-foreground">Parla con il tuo assistente virtuale</p>
+              </div>
+               
+              <Card className="backdrop-blur-sm bg-white/90 dark:bg-gray-900/80 border border-indigo-100 dark:border-indigo-900/50 shadow-md overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg bg-gradient-to-r from-indigo-700 to-indigo-500 text-transparent bg-clip-text">
+                    <Bot className="h-5 w-5 mr-2 text-indigo-500" />
+                    Psico AI
+                  </CardTitle>
+                  <CardDescription>
+                    Parla con un assistente virtuale per ricevere supporto
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="min-h-[600px] flex items-center justify-center">
+                  <div className="w-full max-w-3xl mx-auto flex items-center justify-center">
+                    <elevenlabs-convai agent-id="j8WuMd6P0Gc5aji3qRJK"></elevenlabs-convai>
+                    <script src="https://elevenlabs.io/convai-widget/index.js" async type="text/javascript"></script>
+                    
+                    <style jsx global>{`
+                      elevenlabs-convai,
+                      [data-widget-type] {
+                        position: static !important;
+                        bottom: auto !important;
+                        right: auto !important;
+                      }
+                      
+                      #convai-launcher,
+                      div[id^="convai-launcher-"],
+                      .convai-launcher,
+                      [id*="convai-launcher"] {
+                        position: static !important;
+                        bottom: auto !important;
+                        right: auto !important;
+                        margin: 0 auto !important;
+                        left: auto !important;
+                        transform: none !important;
+                      }
+                      
+                      .convai-chat-window,
+                      div[class*="convai-chat-window"],
+                      [class*="chat-window"] {
+                        position: relative !important;
+                        bottom: auto !important;
+                        right: auto !important;
+                        left: auto !important;
+                        margin: 0 auto !important;
+                        transform: none !important;
+                      }
+                    `}</style>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
           
           {/* Profile Tab */}

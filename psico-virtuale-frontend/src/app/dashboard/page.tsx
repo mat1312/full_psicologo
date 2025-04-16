@@ -1,33 +1,21 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
 
-export default function DashboardPage() {
-  const { user, loading, initialized } = useAuthStore()
-  const router = useRouter()
+export default function Dashboard() {
+  const { user, loading } = useAuthStore()
 
-  useEffect(() => {
-    console.log("Dashboard check - User:", user?.role, "Loading:", loading, "Initialized:", initialized)
-    
-    if (!loading && initialized) {
-      if (!user) {
-        console.log("Redirecting to login - No user")
-        router.push('/login')
-      } else if (user.role === 'therapist') {
-        console.log("Redirecting to therapist dashboard")
-        router.push('/therapist-dashboard')
-      } else {
-        console.log("Redirecting to patient dashboard")
-        router.push('/patient-dashboard')
-      }
-    }
-  }, [user, loading, initialized, router])
-
+  // Return a loading state while the auth provider handles redirection
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <p>Reindirizzamento in corso...</p>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Reindirizzamento...</h1>
+        <p className="text-gray-600">Stai per essere reindirizzato alla dashboard.</p>
+        <p className="text-gray-500 mt-4 text-sm">
+          {loading ? 'Caricamento in corso...' : (user ? `Utente autenticato come ${user.role}` : 'Nessun utente autenticato')}
+        </p>
+      </div>
     </div>
   )
 }

@@ -12,6 +12,7 @@ interface AuthState {
   setSession: (session: any | null) => void;
   clearAuth: () => void;
   initialize: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -24,6 +25,14 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user }),
       setSession: (session) => set({ session }),
       clearAuth: () => set({ user: null, session: null }),
+      signOut: async () => {
+        try {
+          await supabase.auth.signOut();
+          set({ user: null, session: null });
+        } catch (error) {
+          console.error('Errore durante il logout:', error);
+        }
+      },
       initialize: async () => {
         try {
           set({ loading: true });
@@ -32,12 +41,48 @@ export const useAuthStore = create<AuthState>()(
           
           if (session) {
             const user = session.user;
-            set({ 
-              user, 
-              session, 
-              initialized: true, 
-              loading: false 
-            });
+            
+            try {
+              // Recupera il profilo utente da Supabase
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+                
+              if (profileData && !profileError) {
+                // Aggiunge i dati del profilo all'utente
+                const enhancedUser = {
+                  ...user,
+                  ...profileData // Include role e altri campi del profilo
+                };
+                
+                console.log('User profile loaded:', enhancedUser);
+                
+                set({ 
+                  user: enhancedUser, 
+                  session, 
+                  initialized: true, 
+                  loading: false 
+                });
+              } else {
+                console.warn('Profilo utente non trovato:', profileError);
+                set({ 
+                  user, 
+                  session, 
+                  initialized: true, 
+                  loading: false 
+                });
+              }
+            } catch (profileLoadError) {
+              console.error('Errore caricamento profilo:', profileLoadError);
+              set({ 
+                user, 
+                session, 
+                initialized: true, 
+                loading: false 
+              });
+            }
           } else {
             set({ 
               user: null, 
